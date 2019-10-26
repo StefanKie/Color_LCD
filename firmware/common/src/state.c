@@ -23,6 +23,7 @@
 
 static uint8_t ui8_m_usart1_received_first_package = 0;
 uint16_t ui16_m_battery_soc_watts_hour;
+uint16_t ui16_m_battery_soc_watts_hour_fixed; // temp hack during merge
 volatile uint32_t ui32_g_layer_2_can_execute;
 
 bool has_seen_motor; // true once we've received a packet from a real motor
@@ -241,7 +242,7 @@ void process_rx(void) {
 				p_rx_buffer++;
 				l2_vars.ui16_pedal_power_x10 += ((uint16_t) *p_rx_buffer << 8);
 
-				// not needed with this implementation (and with ptr flipflop not needed either)
+				// not needed with this implementation (and with ptr flipflop not needed eitehr)
 				// usart1_reset_received_package();
 			}
 		}
@@ -257,132 +258,145 @@ void process_rx(void) {
 		if (has_seen_motor && num_missed_packets++ == 50)
 			APP_ERROR_HANDLER(FAULT_LOSTRX);
 	}
+
 }
 
 void send_tx_package(void) {
 	static uint8_t ui8_message_id = 0;
 
-	uint8_t *ui8_usart1_tx_buffer = uart_get_tx_buffer();
+	uint8_t *ui8_g_usart1_tx_buffer = uart_get_tx_buffer();
 
 	/************************************************************************************************/
 	// send tx package
 	// start up byte
-	ui8_usart1_tx_buffer[0] = 0x59;
-	ui8_usart1_tx_buffer[1] = ui8_message_id;
+	ui8_g_usart1_tx_buffer[0] = 0x59;
+	ui8_g_usart1_tx_buffer[1] = ui8_message_id;
 
 	if (l2_vars.ui8_walk_assist) {
-		ui8_usart1_tx_buffer[2] =
+		ui8_g_usart1_tx_buffer[2] =
 				l2_vars.ui8_walk_assist_level_factor[((l2_vars.ui8_assist_level)
 						- 1)];
 	} else if (l2_vars.ui8_assist_level) {
-		ui8_usart1_tx_buffer[2] =
+		ui8_g_usart1_tx_buffer[2] =
 				l2_vars.ui8_assist_level_factor[((l2_vars.ui8_assist_level) - 1)];
 	} else {
-		ui8_usart1_tx_buffer[2] = 0;
+		ui8_g_usart1_tx_buffer[2] = 0;
 	}
 
-	ui8_usart1_tx_buffer[3] = (l2_vars.ui8_lights & 1)
+	// set lights state
+	// walk assist level state
+	// set offroad state
+//  ui8_g_usart1_tx_buffer[3] = (l2_vars.ui8_lights & 1) |
+//      ((l2_vars.ui8_walk_assist & 1) << 1) |
+//      ((l2_vars.ui8_offroad_mode & 1) << 2);
+
+	ui8_g_usart1_tx_buffer[3] = (l2_vars.ui8_lights & 1)
 			| ((l2_vars.ui8_walk_assist & 1) << 1);
 
 	// battery power
-	ui8_usart1_tx_buffer[4] = l2_vars.ui8_target_max_battery_power;
+	ui8_g_usart1_tx_buffer[4] = l2_vars.ui8_target_max_battery_power;
 
 	switch (ui8_message_id) {
-    case 0:
-      // battery low voltage cut-off
-      ui8_usart1_tx_buffer[5] =
-          (uint8_t) (l2_vars.ui16_battery_low_voltage_cut_off_x10 & 0xff);
-      ui8_usart1_tx_buffer[6] =
-          (uint8_t) (l2_vars.ui16_battery_low_voltage_cut_off_x10 >> 8);
-      break;
+	case 0:
+		// battery low voltage cut-off
+		ui8_g_usart1_tx_buffer[5] =
+				(uint8_t) (l2_vars.ui16_battery_low_voltage_cut_off_x10 & 0xff);
+		ui8_g_usart1_tx_buffer[6] =
+				(uint8_t) (l2_vars.ui16_battery_low_voltage_cut_off_x10 >> 8);
+		break;
 
-    case 1:
-      // wheel perimeter
-      ui8_usart1_tx_buffer[5] = (uint8_t) (l2_vars.ui16_wheel_perimeter
-          & 0xff);
-      ui8_usart1_tx_buffer[6] =
-          (uint8_t) (l2_vars.ui16_wheel_perimeter >> 8);
-      break;
+	case 1:
+		// wheel perimeter
+		ui8_g_usart1_tx_buffer[5] = (uint8_t) (l2_vars.ui16_wheel_perimeter
+				& 0xff);
+		ui8_g_usart1_tx_buffer[6] =
+				(uint8_t) (l2_vars.ui16_wheel_perimeter >> 8);
+		break;
 
-    case 2:
-      // wheel max speed
-      ui8_usart1_tx_buffer[5] = l2_vars.ui8_wheel_max_speed;
+	case 2:
+		// wheel max speed Stef
+		if(l3_vars.ui8_offroad_mode == 1)
+				ui8_g_usart1_tx_buffer[5] = 49;
+		else
+				ui8_g_usart1_tx_buffer[5] = l2_vars.ui8_wheel_max_speed;
 
-      // battery max current
-      ui8_usart1_tx_buffer[6] = l2_vars.ui8_battery_max_current;
-      break;
 
-    case 3:
-      ui8_usart1_tx_buffer[5] = l2_vars.ui8_motor_type;
+		// battery max current
+		ui8_g_usart1_tx_buffer[6] = l2_vars.ui8_battery_max_current;
+		break;
 
-      ui8_usart1_tx_buffer[6] = (
-          l2_vars.ui8_startup_motor_power_boost_always ? 1 : 0)
-          | (l2_vars.ui8_startup_motor_power_boost_limit_power ? 2 : 0);
-      break;
+	case 3:
+		ui8_g_usart1_tx_buffer[5] = l2_vars.ui8_motor_type;
 
-    case 4:
-      // startup motor power boost
-      ui8_usart1_tx_buffer[5] =
-          l2_vars.ui8_startup_motor_power_boost_factor[((l2_vars.ui8_assist_level)
-              - 1)];
-      // startup motor power boost time
-      ui8_usart1_tx_buffer[6] = l2_vars.ui8_startup_motor_power_boost_time;
-      break;
+		ui8_g_usart1_tx_buffer[6] = (
+				l2_vars.ui8_startup_motor_power_boost_always ? 1 : 0)
+				| (l2_vars.ui8_startup_motor_power_boost_limit_power ? 2 : 0);
+		break;
 
-    case 5:
-      // startup motor power boost fade time
-      ui8_usart1_tx_buffer[5] =
-          l2_vars.ui8_startup_motor_power_boost_fade_time;
-      // boost feature enabled
-      ui8_usart1_tx_buffer[6] =
-          (l2_vars.ui8_startup_motor_power_boost_feature_enabled & 1) ?
-              1 : 0;
-      break;
+	case 4:
+		// startup motor power boost
+		ui8_g_usart1_tx_buffer[5] =
+				l2_vars.ui8_startup_motor_power_boost_factor[((l2_vars.ui8_assist_level)
+						- 1)];
+		// startup motor power boost time
+		ui8_g_usart1_tx_buffer[6] = l2_vars.ui8_startup_motor_power_boost_time;
+		break;
 
-    case 6:
-      // motor over temperature min and max values to limit
-      ui8_usart1_tx_buffer[5] =
-          l2_vars.ui8_motor_temperature_min_value_to_limit;
-      ui8_usart1_tx_buffer[6] =
-          l2_vars.ui8_motor_temperature_max_value_to_limit;
-      break;
+	case 5:
+		// startup motor power boost fade time
+		ui8_g_usart1_tx_buffer[5] =
+				l2_vars.ui8_startup_motor_power_boost_fade_time;
+		// boost feature enabled
+		ui8_g_usart1_tx_buffer[6] =
+				(l2_vars.ui8_startup_motor_power_boost_feature_enabled & 1) ?
+						1 : 0;
+		break;
 
-    case 7:
-      ui8_usart1_tx_buffer[5] = l2_vars.ui8_ramp_up_amps_per_second_x10;
+	case 6:
+		// motor over temperature min and max values to limit
+		ui8_g_usart1_tx_buffer[5] =
+				l2_vars.ui8_motor_temperature_min_value_to_limit;
+		ui8_g_usart1_tx_buffer[6] =
+				l2_vars.ui8_motor_temperature_max_value_to_limit;
+		break;
 
-      // TODO
-      // target speed for cruise
-      ui8_usart1_tx_buffer[6] = 0;
-      break;
+	case 7:
+		ui8_g_usart1_tx_buffer[5] = l2_vars.ui8_ramp_up_amps_per_second_x10;
 
-    case 8:
-      // motor temperature limit function or throttle
-      ui8_usart1_tx_buffer[5] =
-          l2_vars.ui8_temperature_limit_feature_enabled & 1;
+		// TODO
+		// target speed for cruise
+		ui8_g_usart1_tx_buffer[6] = 0;
+		break;
 
-      // motor assistance without pedal rotation enable/disable when startup
-      ui8_usart1_tx_buffer[6] =
-          l2_vars.ui8_motor_assistance_startup_without_pedal_rotation;
-      break;
+	case 8:
+		// motor temperature limit function or throttle
+		ui8_g_usart1_tx_buffer[5] =
+				l2_vars.ui8_temperature_limit_feature_enabled & 1;
 
-    default:
-      ui8_message_id = 0;
-      break;
+		// motor assistance without pedal rotation enable/disable when startup
+		ui8_g_usart1_tx_buffer[6] =
+				l2_vars.ui8_motor_assistance_startup_without_pedal_rotation;
+		break;
+
+	default:
+		ui8_message_id = 0;
+		break;
 	}
 
 	// prepare crc of the package
 	uint16_t ui16_crc_tx = 0xffff;
 	for (uint8_t ui8_i = 0; ui8_i <= UART_NUMBER_DATA_BYTES_TO_SEND; ui8_i++) {
-		crc16(ui8_usart1_tx_buffer[ui8_i], &ui16_crc_tx);
+		crc16(ui8_g_usart1_tx_buffer[ui8_i], &ui16_crc_tx);
 	}
-	ui8_usart1_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND + 1] =
+	ui8_g_usart1_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND + 1] =
 			(uint8_t) (ui16_crc_tx & 0xff);
-	ui8_usart1_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND + 2] =
+	ui8_g_usart1_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND + 2] =
 			(uint8_t) (ui16_crc_tx >> 8) & 0xff;
 
 	// send the full package to UART
+	// start DMA UART transfer
 	if (!is_sim_motor) // If we are simulating received packets never send real packets
-		uart_send_tx_buffer(ui8_usart1_tx_buffer);
+		uart_send_tx_buffer(ui8_g_usart1_tx_buffer);
 
 	// increment message_id for next package
 	if (++ui8_message_id > UART_MAX_NUMBER_MESSAGE_ID) {
@@ -497,7 +511,7 @@ void l2_calc_battery_voltage_soc(void) {
 }
 
 void l2_calc_wh(void) {
-	static uint8_t ui8_1s_timer_counter = 0;
+	static uint8_t ui8_1s_timmer_counter = 0;
 	uint32_t ui32_temp = 0;
 
 	if (l2_vars.ui16_battery_power_filtered_x50 > 0) {
@@ -506,28 +520,45 @@ void l2_calc_wh(void) {
 	}
 
 	// calc at 1s rate
-	if (++ui8_1s_timer_counter >= 10) {
-		ui8_1s_timer_counter = 0;
+	if (++ui8_1s_timmer_counter >= 10) {
+		ui8_1s_timmer_counter = 0;
 
 		// avoid zero divisison
 		if (l2_vars.ui32_wh_sum_counter != 0) {
-			ui32_temp = l2_vars.ui32_wh_sum_counter / 36;
+			ui32_temp = l2_vars.ui32_wh_sum_counter / 360;// Stef war 36
 			ui32_temp = (ui32_temp
 					* (l2_vars.ui32_wh_sum_x5 / l2_vars.ui32_wh_sum_counter))
 					/ 500;
 		}
 
 		l2_vars.ui32_wh_x10 = l2_vars.ui32_wh_x10_offset + ui32_temp;
+//Stef
+l3_vars.ui32_wh_gesamt_x10 = l3_vars.ui32_wh_gesamt_x10_offset + ui32_temp;
+
+// calculate average watt-hour consumption per distance traveled, since power on. Check to avoid zero division
+
+if (l3_vars.ui32_ee_gesamt_km == 0)
+	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = 0;
+else
+	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = (l3_vars.ui32_wh_gesamt_x10 * 10 ) / l3_vars.ui32_ee_gesamt_km; // multiply numerator with 10 to retain decimal
+
+if (l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt == 0)
+	l3_vars.ui16_erwartete_reichweite_gesamt_x10 = 10000;
+else if (l3_vars.ui32_wh_gesamt_x10 * 10 > l3_vars.ui32_wh_x10_100_percent)
+				l3_vars.ui16_erwartete_reichweite_gesamt_x10 = 0;
+		 else
+		 		l3_vars.ui16_erwartete_reichweite_gesamt_x10 = ((l3_vars.ui32_wh_x10_100_percent - l3_vars.ui32_wh_gesamt_x10) * 10) / l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt; // multiply numerator with 10 to retain decimal
+
 	}
 }
 
 static void l2_calc_odometer(void) {
-  static uint8_t ui8_1s_timer_counter;
 	uint32_t uint32_temp;
+	static uint8_t ui8_1s_timmer_counter;
 
 	// calc at 1s rate
-	if (++ui8_1s_timer_counter >= 10) {
-		ui8_1s_timer_counter = 0;
+	if (++ui8_1s_timmer_counter >= 10) {
+		ui8_1s_timmer_counter = 0;
 
 		uint32_temp = (l2_vars.ui32_wheel_speed_sensor_tick_counter
 				- l3_vars.ui32_wheel_speed_sensor_tick_counter_offset)
@@ -555,6 +586,15 @@ static void l2_calc_odometer(void) {
 			// l3_vars.ui16_distance_since_power_on_x10 += 1;
 			l3_vars.ui32_odometer_x10 += 1;
 			l3_vars.ui32_trip_x10 += 1;
+
+//Stef
+			l3_vars.ui32_ee_gesamt_km++;
+
+			if (l3_vars.ui32_trip_timeSec == 0)
+				l3_vars.ui16_avg_speed_x10 = 0;
+			else
+				l3_vars.ui16_avg_speed_x10 = (l3_vars.ui32_trip_x10 * 3600) / l3_vars.ui32_trip_timeSec;
+
 
 			// reset the always incrementing value (up to motor controller power reset) by setting the offset to current value
 			l3_vars.ui32_wheel_speed_sensor_tick_counter_offset =
@@ -600,6 +640,15 @@ uint8_t first_time_management(void) {
 				> ((uint32_t) l3_vars.ui16_battery_voltage_reset_wh_counter_x10
 						* 1000)) {
 			l3_vars.ui32_wh_x10_offset = 0;
+
+			if (l3_vars.ui32_ee_gesamt_km > 500)
+			{
+				l3_vars.ui32_ee_gesamt_km /= 2;
+				l3_vars.ui32_ee_gesamt_km_mit_motor /= 2;
+				l3_vars.ui32_wh_gesamt_x10_offset /= 2;
+			}
+
+
 		}
 
 		if (l3_vars.ui8_offroad_feature_enabled
@@ -617,7 +666,6 @@ void calc_battery_soc_watts_hour(void) {
 	uint32_t ui32_temp;
 
 	ui32_temp = l3_vars.ui32_wh_x10 * 100;
-
 	if (l3_vars.ui32_wh_x10_100_percent > 0) {
 		ui32_temp /= l3_vars.ui32_wh_x10_100_percent;
 	} else {
@@ -633,6 +681,9 @@ void calc_battery_soc_watts_hour(void) {
 	} else {
 		ui16_m_battery_soc_watts_hour = ui32_temp;
 	}
+
+	// fixed range
+	ui16_m_battery_soc_watts_hour_fixed = 100 - ui32_temp;
 }
 
 // Note: this called from ISR context every 100ms
@@ -699,7 +750,19 @@ void copy_layer_2_layer_3_vars(void) {
 	l3_vars.ui32_wh_sum_counter = l2_vars.ui32_wh_sum_counter;
 	l3_vars.ui32_wh_x10 = l2_vars.ui32_wh_x10;
 	l3_vars.ui8_braking = l2_vars.ui8_braking;
-	l3_vars.ui8_foc_angle = (((uint16_t) l2_vars.ui8_foc_angle) * 14) / 10; // each units is equal to 1.4 degrees ((360 degrees / 256) = 1.4)
+	l3_vars.ui8_foc_angle = l2_vars.ui8_foc_angle;
+
+/*
+	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor = l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor;
+	l3_vars.ui32_wh_gesamt_x10_offset = l2_vars.ui32_wh_gesamt_x10_offset;
+	l3_vars.ui16_avg_speed_x10 = l2_vars.ui16_avg_speed_x10;
+	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt;
+	l3_vars.ui16_erwartete_reichweite_gesamt_x10 = l2_vars.ui16_erwartete_reichweite_gesamt_x10;
+
+	l3_vars.ui32_ee_gesamt_km = l2_vars.ui32_ee_gesamt_km;
+	l3_vars.ui32_ee_gesamt_km_mit_motor = l2_vars.ui32_ee_gesamt_km_mit_motor;
+	l3_vars.ui32_wh_gesamt_x10 = l2_vars.ui32_wh_gesamt_x10;
+*/
 
 	l2_vars.ui32_wh_x10_offset = l3_vars.ui32_wh_x10_offset;
 	l2_vars.ui16_battery_pack_resistance_x1000 =
@@ -789,8 +852,18 @@ void copy_layer_2_layer_3_vars(void) {
 	l2_vars.ui8_offroad_power_limit_enabled =
 			l3_vars.ui8_offroad_power_limit_enabled;
 	l2_vars.ui8_offroad_power_limit_div25 =
-			l3_vars.ui8_offroad_power_limit_div25;
+			l2_vars.ui8_offroad_power_limit_div25;
 
+		/*	l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor = l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor;
+			l2_vars.ui32_wh_gesamt_x10_offset = l3_vars.ui32_wh_gesamt_x10_offset;
+			l2_vars.ui16_avg_speed_x10 = l3_vars.ui16_avg_speed_x10;
+			l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt;
+			l2_vars.ui16_erwartete_reichweite_gesamt_x10 = l3_vars.ui16_erwartete_reichweite_gesamt_x10;
+
+			l2_vars.ui32_ee_gesamt_km = l3_vars.ui32_ee_gesamt_km;
+			l2_vars.ui32_ee_gesamt_km_mit_motor = l3_vars.ui32_ee_gesamt_km_mit_motor;
+			l2_vars.ui32_wh_gesamt_x10 = l3_vars.ui32_wh_gesamt_x10;
+*/
 	// Some l3 vars are derived only from other l3 vars
 	uint32_t ui32_battery_cells_number_x10 =
 			(uint32_t) (l3_vars.ui8_battery_cells_number * 10);
@@ -869,4 +942,3 @@ void automatic_power_off_management(void) {
 		ui16_lcd_power_off_time_counter = 0;
 	}
 }
-
