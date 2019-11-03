@@ -59,7 +59,7 @@ static void init_app_timers(void);
 void lcd_power_off(uint8_t updateDistanceOdo)
 {
   l3_vars.ui32_wh_x10_offset = l3_vars.ui32_wh_x10;
-
+  l3_vars.ui32_wh_gesamt_x10_offset = l3_vars.ui32_wh_gesamt_x10;
 // save the variables on EEPROM
   eeprom_write_variables();
 
@@ -196,6 +196,10 @@ int main(void)
   uint32_t ticksmissed = 0;
   while (1)
   {
+    if (l3_vars.ui16_wheel_speed_x10 == 0) {  //Stef
+         l3_vars.ui8_offroad_mode = 0;
+      }
+
     uint32_t tick = gui_ticks;
     if (tick != lasttick)
     {
@@ -221,6 +225,7 @@ int main(void)
 
     if(useSoftDevice)
       sd_app_evt_wait(); // let OS threads have time to run
+
   }
 
 }
@@ -277,11 +282,13 @@ static void gui_timer_timeout(void *p_context)
 
   gui_ticks++;
 
-  if(gui_ticks % (1000 / MSEC_PER_TICK) == 0)
-    ui32_seconds_since_startup++;
-  
   if(gui_ticks % (100 / MSEC_PER_TICK) == 0) // every 100ms
     layer_2();
+
+  if(gui_ticks % (1000 / MSEC_PER_TICK) == 0){
+    ui32_seconds_since_startup++;
+    if(l3_vars.ui16_wheel_speed_x10 > 0) l3_vars.ui32_trip_timeSec++; //Steff
+  }
 }
 
 
@@ -291,7 +298,9 @@ uint32_t get_msecs() {
 }
 
 uint32_t get_seconds() {
-  return ui32_seconds_since_startup;
+//  return ui32_seconds_since_startup;
+  return l3_vars.ui32_trip_timeSec;
+
 }
 
 static void init_app_timers(void)
@@ -320,5 +329,3 @@ static void init_app_timers(void)
           gui_timer_timeout));
   APP_ERROR_CHECK(app_timer_start(gui_timer_id, GUI_INTERVAL, NULL));
 }
-
-

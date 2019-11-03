@@ -36,14 +36,6 @@ static void mainScreenOnEnter() {
  * FIXME - get rid of this nasty define - instead add the concept of Subscreens, so that the battery bar
  * at the top and the status bar at the bottom can be shared across all screens
  */
-#define STATUS_BAR \
-{ \
-    .x = 4, .y = 114, \
-    .width = 0, .height = -1, \
-    .field = &warnField, \
-    .font = &REGULAR_TEXT_FONT, \
-}
-
 #define BATTERY_BAR \
     { \
         .x = 0, .y = 0, \
@@ -54,16 +46,69 @@ static void mainScreenOnEnter() {
     { \
         .x = 32, .y = 0, \
         .width = -5, .height = -1, \
-        .font = &REGULAR_TEXT_FONT, \
-        .field = &socField \
+				.field = &socField, \
+        .font = &REGULAR_TEXT_FONT \
     }
-/*
-{
-    .x = 32, .y = 0,
-    .width = -5, .height = -1,
-    .field = &tripTimeField
-},
+
+
+
+		// .border = BorderBottom | BorderTop  | BorderLeft  | BorderRight,
+		// y = -1 für die automatische Zuweisung nächste Zeile
+		// height = 0 -> ab y rest vom Screen
+		// height = -1 -> Höhe Fonts
+		// width = 0 -> ab x rest vom Screen
+		// width < 0 -> Nr Fonts
+ 	 #define WH_BAR \
+{ \
+ 	         .x = 1, .y = 85, \
+ 	         .width = -9, .height = -1, \
+ 	         .field = &RangeField, \
+					 .font = &REGULAR_TEXT_FONT, \
+					 .label_align_x = AlignHidden, \
+ 	     }
+
+/*  { \
+      .x = 1, .y = 75, \
+      .width = -8, .height = -1, \
+      .field = &WhKmField, \
+      .font = &REGULAR_TEXT_FONT, \
+      .label_align_x = AlignHidden, \
+  }, \
 */
+
+		#define STATUS_BAR \
+		{ \
+		    .x = 1, .y = 102, \
+		    .width = 0, .height = -1, \
+		    .field = &warnField, \
+		    .font = &REGULAR_TEXT_FONT, \
+		}
+
+		#define FOOT_BAR \
+		{ \
+				.x = 1, .y = 115, \
+				.width = -4, .height = -1, \
+				.field = &tripTimeField, \
+				.font = &REGULAR_TEXT_FONT, \
+				.label_align_x = AlignHidden, \
+		},\
+		{ \
+	      .x = 31, .y = 115, \
+	      .width = -7, .height = -1, \
+				.field = &tripDistanceIntegerField, \
+	      .font = &REGULAR_TEXT_FONT, \
+				.label_align_x = AlignHidden, \
+	  }
+		/*
+	  { \
+	      .x = 1, .y = 114, \
+	      .width = -7, .height = -1, \
+	      .field = &tripDistanceField, \
+	      .font = &REGULAR_TEXT_FONT, \
+				.label_align_x = AlignHidden, \
+	  }
+		*/
+
 
 //
 // Screens
@@ -74,23 +119,23 @@ Screen mainScreen = {
 
     .fields = {
     BATTERY_BAR,
-    {
-        .x = 0, .y = -2,
-        .width = 0, .height = -1,
+		{
+        .x = 0, .y = 48,//35
+        .width = -1, .height = -1,
         .field = &assistLevelField,
+        .font = &MEDIUM_NUMBERS_TEXT_FONT,
+        .label_align_x = AlignHidden,
+        .border = BorderBottom//BorderNone
+    },
+    {
+        .x = 12, .y = 24,
+        .width = -2, .height = -1,
+        .field = &wheelSpeedIntegerField,
         .font = &BIG_NUMBERS_TEXT_FONT,
         .label_align_x = AlignHidden,
         .border = BorderBottom
     },
-    /*
-    {
-        .x = 19, .y = 16,
-        .width = -2, .height = -1,
-        // .color = ColorInvert,
-        .field = &speedField,
-        .border = BorderNone
-    }, */
-    {
+/*    {
         .x = 0, .y = -2,
         .width = 0, .height = 19,
         .field = &maxPowerField,
@@ -98,15 +143,10 @@ Screen mainScreen = {
         .label_align_x = AlignHidden,
         .border = BorderBottom
     },
-    {
-        .x = 0, .y = -2,
-        .width = 0, .height = -1,
-        .field = &wheelSpeedIntegerField,
-        .font = &BIG_NUMBERS_TEXT_FONT,
-        .label_align_x = AlignHidden,
-        .border = BorderNone
-    },
+		*/
+		WH_BAR,
     STATUS_BAR,
+		FOOT_BAR,
     {
         .field = NULL
     } }
@@ -116,7 +156,8 @@ Screen infoScreen = {
     // .onPress = mainscreen_onpress,
 	.onEnter = mainScreenOnEnter,
   .onCustomized = eeprom_write_variables,
-  .onPress = anyscreen_onpress,
+	 .onPress = mainscreen_onpress,
+  //Stef   .onPress = anyscreen_onpress,
 
     .fields = {
     BATTERY_BAR,
@@ -154,6 +195,7 @@ Screen infoScreen = {
         .border = BorderBottom
     },
 #endif
+    FOOT_BAR,
     STATUS_BAR,
     {
         .field = NULL
@@ -169,7 +211,6 @@ void battery_display() {
 
 // Screens in a loop, shown when the user short presses the power button
 Screen *screens[] = { &mainScreen,
-		&infoScreen, &configScreen,
+	&infoScreen, &configScreen,
+//	&infoScreen,
 		NULL };
-
-
