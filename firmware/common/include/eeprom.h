@@ -54,16 +54,30 @@ typedef struct eeprom_data {
 	uint8_t ui8_offroad_speed_limit;
 	uint8_t ui8_offroad_power_limit_enabled;
 	uint8_t ui8_offroad_power_limit_div25;
-	uint32_t ui32_odometer_x10;
+//	uint32_t ui32_odometer_x10;
 	uint8_t ui8_walk_assist_feature_enabled;
 	uint8_t ui8_walk_assist_level_factor[9];
+	uint8_t field_selectors[NUM_CUSTOMIZABLE_FIELDS]; // this array is opaque to the app, but the screen layer uses it to store which field is being displayed (it is stored to EEPROM)
+	//Stef  energy data variables
 
+	 uint16_t   ui16_max_speed_x10_kmh ;
+	 uint32_t   ui32_wh_gesamt_x10_offset ;
+	 uint16_t   ui16_avg_speed_x10 ;
+
+	 uint16_t   ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt ;
+	 uint16_t   ui16_erwartete_reichweite_gesamt_x10 ;
+	 uint32_t ui32_ee_gesamt_km;
+	 uint32_t ui32_ee_gesamt_km_mit_motor;
+	 uint32_t ui32_wh_gesamt_x10;
+	 uint32_t ui32_odometer_x10;
+	 uint32_t ui32_trip_x10;
+	 uint32_t ui32_trip_timeSec;
+	 
 	uint8_t ui8_battery_soc_increment_decrement;
 	uint8_t ui8_buttons_up_down_invert;
 
-	uint8_t field_selectors[NUM_CUSTOMIZABLE_FIELDS]; // this array is opaque to the app, but the screen layer uses it to store which field is being displayed (it is stored to EEPROM)
 
-	uint8_t x_axis_scale; // x axis scale
+
 
 // FIXME align to 32 bit value by end of structure and pack other fields
 } eeprom_data_t;
@@ -77,18 +91,18 @@ void eeprom_init_defaults(void);
 // EEPROM memory variables default values
 #define DEFAULT_VALUE_ASSIST_LEVEL                                  3
 #define DEFAULT_VALUE_NUMBER_OF_ASSIST_LEVELS                       5
-#define DEFAULT_VALUE_WHEEL_PERIMETER                               2050 // 26'' wheel: 2050mm perimeter
-#define DEFAULT_VALUE_WHEEL_MAX_SPEED                               50
+#define DEFAULT_VALUE_WHEEL_PERIMETER                               2280 // 26'' wheel: 2050mm perimeter
+#define DEFAULT_VALUE_WHEEL_MAX_SPEED                               25
 #define DEFAULT_VALUE_UNITS_TYPE                                    0 // 0 = km/h
 #define DEFAULT_VALUE_WH_X10_OFFSET                                 0
-#define DEFAULT_VALUE_HW_X10_100_PERCENT                            0
+#define DEFAULT_VALUE_HW_X10_100_PERCENT                            3600
 #define DEAFULT_VALUE_SHOW_NUMERIC_BATTERY_SOC                      0
 #define DEFAULT_VALUE_BATTERY_MAX_CURRENT                           16 // 16 amps
 #define DEFAULT_VALUE_RAMP_UP_AMPS_PER_SECOND_X10                   50 // 5.0 amps per second ramp up
 #define DEFAULT_VALUE_TARGET_MAX_BATTERY_POWER                      0 // e.g. 20 = 20 * 25 = 500, 0 is disabled
-#define DEFAULT_VALUE_BATTERY_CELLS_NUMBER                          13 // 13 --> 48V
-#define DEFAULT_VALUE_BATTERY_LOW_VOLTAGE_CUT_OFF_X10               390 // 48v battery, LVC = 39.0 (3.0 * 13)
-#define DEFAULT_VALUE_MOTOR_TYPE                                    0 // ui8_motor_type = 0 = 48V
+#define DEFAULT_VALUE_BATTERY_CELLS_NUMBER                          10 // 13 --> 48V
+#define DEFAULT_VALUE_BATTERY_LOW_VOLTAGE_CUT_OFF_X10               300 // 48v battery, LVC = 39.0 (3.0 * 13)
+#define DEFAULT_VALUE_MOTOR_TYPE                                    1 // ui8_motor_type = 0 = 48V
 #define DEFAULT_VALUE_MOTOR_ASSISTANCE_WITHOUT_PEDAL_ROTATION       0 // 0 to keep this feature disable
 #define DEFAULT_VALUE_ASSIST_LEVEL_FACTOR_1                         2 // 0.2
 #define DEFAULT_VALUE_ASSIST_LEVEL_FACTOR_2                         3
@@ -99,7 +113,7 @@ void eeprom_init_defaults(void);
 #define DEFAULT_VALUE_ASSIST_LEVEL_FACTOR_7                         21
 #define DEFAULT_VALUE_ASSIST_LEVEL_FACTOR_8                         32
 #define DEFAULT_VALUE_ASSIST_LEVEL_FACTOR_9                         48
-#define DEFAULT_VALUE_WALK_ASSIST_FEATURE_ENABLED                   1
+#define DEFAULT_VALUE_WALK_ASSIST_FEATURE_ENABLED                   0
 #define DEFAULT_VALUE_WALK_ASSIST_LEVEL_FACTOR_1                    5
 #define DEFAULT_VALUE_WALK_ASSIST_LEVEL_FACTOR_2                    6
 #define DEFAULT_VALUE_WALK_ASSIST_LEVEL_FACTOR_3                    8
@@ -110,7 +124,7 @@ void eeprom_init_defaults(void);
 #define DEFAULT_VALUE_WALK_ASSIST_LEVEL_FACTOR_8                    18
 #define DEFAULT_VALUE_WALK_ASSIST_LEVEL_FACTOR_9                    20
 #define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_FEATURE_ENABLED     0
-#define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_ALWAYS              1
+#define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_ALWAYS              0
 #define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_ASSIST_LEVEL_1      4
 #define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_ASSIST_LEVEL_2      7
 #define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_ASSIST_LEVEL_3      10
@@ -122,17 +136,17 @@ void eeprom_init_defaults(void);
 #define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_ASSIST_LEVEL_9      28
 #define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_TIME                20 // 2.0 seconds
 #define DEFAULT_VALUE_STARTUP_MOTOR_POWER_BOOST_FADE_TIME           35 // 3.5 seconds
-#define DEFAULT_VALUE_MOTOR_TEMPERATURE_FEATURE_ENABLE              0
+#define DEFAULT_VALUE_MOTOR_TEMPERATURE_FEATURE_ENABLE              1
 #define DEFAULT_VALUE_MOTOR_TEMPERATURE_MIN_VALUE_LIMIT             75 // 75 degrees celsius
 #define DEFAULT_VALUE_MOTOR_TEMPERATURE_MAX_VALUE_LIMIT             85 // 85 degrees celsius
-#define DEFAULT_VALUE_BATTERY_VOLTAGE_RESET_WH_COUNTER_X10          542 // 48v battery, 54.2 volts fully charged
+#define DEFAULT_VALUE_BATTERY_VOLTAGE_RESET_WH_COUNTER_X10          424 // 48v battery, 54.2 volts fully charged
 #define DEFAULT_VALUE_LCD_POWER_OFF_TIME                            15 // 15 minutes, each unit 1 minute
 #ifdef SW102
-#define DEFAULT_VALUE_LCD_BACKLIGHT_ON_BRIGHTNESS                   100 // 8 = 40%
-#define DEFAULT_VALUE_LCD_BACKLIGHT_OFF_BRIGHTNESS                  20 // 20 = 100%
+#define DEFAULT_VALUE_LCD_BACKLIGHT_ON_BRIGHTNESS                   100 // 8 = 40% 850C
+#define DEFAULT_VALUE_LCD_BACKLIGHT_OFF_BRIGHTNESS                  20 // 20 = 100% 850C
 #else
-#define DEFAULT_VALUE_LCD_BACKLIGHT_ON_BRIGHTNESS                   30 // 100 = 100%
-#define DEFAULT_VALUE_LCD_BACKLIGHT_OFF_BRIGHTNESS                  100
+#define DEFAULT_VALUE_LCD_BACKLIGHT_ON_BRIGHTNESS                   8 // 8 = 40%
+#define DEFAULT_VALUE_LCD_BACKLIGHT_OFF_BRIGHTNESS                  20 // 20 = 100%
 #endif
 #define DEFAULT_VALUE_BATTERY_PACK_RESISTANCE                       130 // 48v battery, 13S5P measured 130 milli ohms
 #define DEFAULT_VALUE_OFFROAD_FEATURE_ENABLED                       0
@@ -143,7 +157,6 @@ void eeprom_init_defaults(void);
 #define DEFAULT_VALUE_ODOMETER_X10                                  0
 #define DEFAULT_VALUE_BATTERY_SOC_INCREMENT_DECREMENT               1 // decrement
 #define DEFAULT_VALUE_BUTTONS_UP_DOWN_INVERT                        0 // regular state
-#define DEFAULT_VALUE_X_AXIS_SCALE                                  0 // 15m
 
 // *************************************************************************** //
 

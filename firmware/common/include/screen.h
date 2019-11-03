@@ -130,18 +130,16 @@ typedef enum {
 } EditableType;
 
 
-#define GRAPH_MAX_POINTS	(236) // Note: we waste one record, to make our ring buffer code easier
-#define GRAPH_INTERVAL_MS 	3810 // graph updates are expensive - do rarely (236 * 3.810 seconds = 15 minutes)
+#define GRAPH_MAX_POINTS	(256) // Note: we waste one record, to make our ring buffer code easier
+#define GRAPH_INTERVAL_MS 	3500 // graph updates are expensive - do rarely
 #define GRAPH_COLOR_ACCENT  C_WHITE // Drawn as a top line on the graph
 #define GRAPH_COLOR_NORMAL  C_BLUE
 #define GRAPH_COLOR_WARN    C_YELLOW
 #define GRAPH_COLOR_ERROR   C_RED
 #define GRAPH_COLOR_BACKGROUND C_BLACK
-#define GRAPH_COLOR_AXIS	C_WHITE
+#define GRAPH_COLOR_AXIS	C_SLATE_GRAY
 #define GRAPH_LABEL_FONT	SMALL_TEXT_FONT
 #define GRAPH_MAXVAL_FONT 	SMALL_TEXT_FONT
-#define GRAPH_XAXIS_FONT   SMALL_TEXT_FONT
-#define GRAPH_GRAPH_LABEL_OFFSET 12
 
 // Assumed period of screenUpdate invoke
 #define UPDATE_INTERVAL_MS 20
@@ -219,9 +217,8 @@ typedef struct Field {
 					const char *units;
 					const uint8_t div_digits :4; // how many digits to divide by for fractions (i.e. 0 for integers, 1 for /10x, 2 for /100x, 3 /1000x
 					const bool hide_fraction :1; // if set, don't ever show the fractional part
-					uint32_t max_value, min_value; // min/max
+					const uint32_t max_value, min_value; // min/max
 					const uint32_t inc_step; // if zero, then 1 is assumed
-	      				void (*onPreSetEditable)(uint32_t v); // called before a new edited value is updated
 				} number;
 
 				struct {
@@ -306,10 +303,13 @@ typedef struct FieldLayout {
 	Coord x, y; // a y <0 means, start just below the previous lowest point on the screen, -1 is immediately below, -2 has one blank line, -3 etc...
 
 	// for text fields if negative width is in # of characters. or 0 to determine length based on remaining screen width
+	// für Textfelder, wenn die negative Breite in Anzahl Zeichen angegeben ist. oder 0, um die Länge basierend auf der verbleibenden Bildschirmbreite zu bestimmen
 	// For all other cases, width is in pixels
 	Coord width;
 
 	// for text fields use height = -1 to determine height based on font size.  for all fields 0 means 'rest of screen'
+	// Verwenden Sie für Textfelder height = -1, um die Höhe basierend auf der Schriftgröße zu bestimmen. für alle Felder bedeutet 0 "Rest des Bildschirms"
+
 	// for other cases height is in pixels
 	Coord height;
 
@@ -424,10 +424,9 @@ extern const UG_FONT *editable_units_font;
 
 #define SCREENCLICK_START_EDIT ONOFF_CLICK
 #define SCREENCLICK_STOP_EDIT ONOFF_CLICK
-#define SCREENCLICK_EXIT_SCROLLABLE ONOFF_LONG_CLICK
+#define SCREENCLICK_EXIT_SCROLLABLE ONOFF_CLICK
 #define SCREENCLICK_NEXT_SCREEN UPDOWN_CLICK
 
-#define SCREENCLICK_START_CUSTOMIZING ONOFF_CLICK_LONG_CLICK
-#define SCREENCLICK_STOP_CUSTOMIZING ONOFF_LONG_CLICK
+#define SCREENCLICK_START_CUSTOMIZING ONOFF_CLICK
+#define SCREENCLICK_STOP_CUSTOMIZING ONOFF_CLICK
 #endif
-

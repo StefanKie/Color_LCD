@@ -90,6 +90,18 @@ typedef struct l2_vars_struct {
 	uint8_t ui8_braking;
 	uint8_t ui8_walk_assist;
 	uint8_t ui8_offroad_mode;
+	//Stef  energy data variables
+/*	uint32_t ui32_ee_gesamt_km;
+ 	uint32_t ui32_ee_gesamt_km_mit_motor;
+	 uint16_t   ui16_max_speed_x10_kmh ;
+	 uint32_t   ui32_wh_since_power_on_x10 ;
+	 uint16_t   ui16_avg_speed_x10 ;
+
+	 uint16_t   ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt ;
+	 uint16_t   ui16_erwartete_reichweite_gesamt_x10 ;
+	 uint32_t ui32_wh_gesamt_x10;
+	 uint32_t ui32_wh_gesamt_x10_offset;
+*/
 } l2_vars_t;
 
 /* Selector positions for customizable fields
@@ -168,10 +180,9 @@ typedef struct l3_vars_struct {
 	uint8_t ui8_offroad_speed_limit;
 	uint8_t ui8_offroad_power_limit_enabled;
 	uint8_t ui8_offroad_power_limit_div25;
-	// uint16_t ui16_odometer_distance_x10;
 	uint32_t ui32_odometer_x10;
-	// uint16_t ui16_distance_since_power_on_x10;
 	uint32_t ui32_trip_x10;
+	uint32_t ui32_trip_timeSec;
 
 	uint8_t ui8_lights;
 	uint8_t ui8_braking;
@@ -182,8 +193,17 @@ typedef struct l3_vars_struct {
 	uint8_t volt_based_soc; // a SOC generated only based on pack voltage
 
 	uint8_t field_selectors[NUM_CUSTOMIZABLE_FIELDS]; // this array is opaque to the app, but the screen layer uses it to store which field is being displayed (it is stored to EEPROM)
+	//Stef  energy data variables
+  uint32_t ui32_ee_gesamt_km;
+	uint32_t ui32_ee_gesamt_km_mit_motor;
+	uint32_t ui32_wh_gesamt_x10;
+	uint32_t ui32_wh_gesamt_x10_offset;
+   uint16_t   ui16_max_speed_x10_kmh ;
+	 uint32_t   ui32_wh_since_power_on_x10 ;
+	 uint16_t   ui16_avg_speed_x10 ;
 
-  uint8_t x_axis_scale; // x axis scale
+	 uint16_t   ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt ;
+	 uint16_t   ui16_erwartete_reichweite_gesamt_x10 ;
 
 } l3_vars_t;
 
@@ -210,6 +230,7 @@ void lcd_power_off(uint8_t updateDistanceOdo); // provided by LCD
 void set_lcd_backlight();
 
 extern uint16_t ui16_m_battery_soc_watts_hour;
+extern uint16_t ui16_m_battery_soc_watts_hour_fixed;
 extern volatile uint32_t ui32_g_layer_2_can_execute;
 
 extern bool has_seen_motor; // true once we've received a packet from a real motor
@@ -245,4 +266,3 @@ extern bool is_sim_motor; // true if we are simulating a motor (and therefore no
 #define PEDAL_TORQUE_FILTER_COEFFICIENT    2
 #define PEDAL_POWER_FILTER_COEFFICIENT     3
 #define PEDAL_CADENCE_FILTER_COEFFICIENT   2
-
