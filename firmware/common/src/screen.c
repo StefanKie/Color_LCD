@@ -30,8 +30,6 @@
 #include "lcd.h"
 #include "ugui.h"
 #include "fonts.h"
-#include "state.h"
-#include "mainscreen.h"
 
 extern UG_GUI gui;
 
@@ -153,7 +151,7 @@ bool renderDrawTextCommon(FieldLayout *layout, const char *msg) {
 	// ug fonts include no blank space at the beginning, so we always include one col of padding
 	UG_FillFrame(layout->x, layout->y, layout->x + layout->width - 1,
 			layout->y + height - 1, back);
-  UG_SetBackcolor(back);
+	UG_SetBackcolor(C_TRANSPARENT);
 	if (!layout->field->blink || blinkOn) // if we are supposed to blink do that
 		putAligned(layout, layout->align_x, AlignTop, layout->inset_x,
 				layout->inset_y, layout->font, msg);
@@ -332,6 +330,7 @@ const bool renderLayouts(FieldLayout *layouts, bool forceRender) {
 			assert(layout->height != -1); // by the time we reach here this must be set
 
 			// After the renderer has run, cache the highest Y we have seen (for entries that have y = -1 for auto assignment)
+// Zwischenspeichern Sie nach dem Ausführen des Renderers das höchste Y, das wir gesehen haben (für Einträge mit y = -1 für die automatische Zuweisung)
 			if (layout->y + layout->height > maxy)
 				maxy = layout->y + layout->height;
 
@@ -390,12 +389,11 @@ static bool exitScrollable() {
 		// Parent was a scrollable, show it
 		f->dirty = true;
 		forceScrollableRelayout = true;
+		return true;
 	} else {
-		// otherwise we just leave the screen
-	  showNextScreen();
+		// otherwise we just leave the screen showing the top scrollable
+		return false;
 	}
-
-  return true;
 }
 
 #define SCROLLABLE_VPAD 4 // extra space between each row (for visual appearance)
@@ -469,7 +467,6 @@ static bool renderActiveScrollable(FieldLayout *layout, Field *field) {
 						entry->is_selected = (entryNum
 								== field->scrollable.selected);
 						entry->blink = entry->is_selected;
-						r->color = ColorNormal; // force color because r points to a static object that holds previous color
 					} else {
 						r->field = &blankRows[i];
 						r->field->variant = FieldFill;
@@ -1039,8 +1036,6 @@ static void graphClear(Field *field) {
 
 // Draw our axis lines and min/max numbers
 static void graphLabelAxis(Field *field) {
-  static int32_t max_val_pre = INT32_MAX;
-  static int32_t min_val_pre = INT32_MIN;
 
 	// Only need to draw labels and axis if dirty
 	Field *source = field->graph.source;
@@ -1051,65 +1046,28 @@ static void graphLabelAxis(Field *field) {
 		UG_SetForecolor(GRAPH_COLOR_ACCENT);
 
 		// vertical axis line
-    UG_DrawLine(graphXmin, graphYmin, graphXmin, graphYmax,
-    GRAPH_COLOR_AXIS);
+		UG_DrawLine(graphXmin, graphYmin, graphXmin, graphYmax,
+		GRAPH_COLOR_AXIS);
 
 		// horiz axis line
-    UG_DrawLine(graphXmin, graphYmin, graphXmin + 236, graphYmin,
-    GRAPH_COLOR_AXIS);
-
-		// x axis scale
-		switch (l3_vars.x_axis_scale) {
-		  case 0:
-		    putStringRight(SCREEN_WIDTH - 1, graphYmin - 10 - 2, &GRAPH_XAXIS_FONT, "15m");
-		    break;
-
-/*      case 1:
-        putStringRight(SCREEN_WIDTH, graphYmin - 10 - 2, &GRAPH_XAXIS_FONT, "30m");
-        break;
-
-      case 2:
-        putStringRight(SCREEN_WIDTH, graphYmin - 10 - 2, &GRAPH_XAXIS_FONT, "1h");
-        break;
-
-      case 3:
-        putStringRight(SCREEN_WIDTH, graphYmin - 10 - 2, &GRAPH_XAXIS_FONT, "2h");
-        break;*/
-
-		  default:
-		    putStringRight(SCREEN_WIDTH - 1, graphYmin - 10 - 2, &GRAPH_XAXIS_FONT, "15m");
-		    break;
-		}
+		UG_DrawLine(graphXmin, graphYmin, graphXmax, graphYmin,
+		GRAPH_COLOR_AXIS);
 	}
 
 	// draw max value
 	GraphCache *cache = field->graph.cache;
 	char valstr[MAX_FIELD_LEN];
-
-	// draw if value changed or dirty
-	if(cache->max_val != max_val_pre ||
-	    field->dirty) {
-	    max_val_pre = cache->max_val;
-
-	    if (cache->max_val != INT32_MIN) {
-	      getEditableString(source, cache->max_val, valstr);
-	      putStringRight((GRAPH_MAXVAL_FONT.char_width * 4) + 4,
-	                     graphYmax, &GRAPH_MAXVAL_FONT, valstr);
-	    }
+	if (cache->max_val != INT32_MIN) {
+		getEditableString(source, cache->max_val, valstr);
+		putStringRight(graphXmin, graphYmax, &GRAPH_MAXVAL_FONT, valstr);
 	}
 
-  // draw if value changed or dirty
-  if(cache->min_val != min_val_pre ||
-      field->dirty) {
-      min_val_pre = cache->min_val;
-
-      if (cache->min_val != INT32_MAX) {
-        getEditableString(source, cache->min_val, valstr);
-        putStringRight((GRAPH_MAXVAL_FONT.char_width * 4) + 4,
-                       graphYmin - GRAPH_MAXVAL_FONT.char_height,
-            &GRAPH_MAXVAL_FONT, valstr);
-      }
-  }
+	// draw min value
+	if (cache->min_val != INT32_MAX) {
+		getEditableString(source, cache->min_val, valstr);
+		putStringRight(graphXmin, graphYmin - GRAPH_MAXVAL_FONT.char_height,
+				&GRAPH_MAXVAL_FONT, valstr);
+	}
 }
 
 // Linear  interpolated between the min/max values to generate a y coordinate for plotting a particular value x
@@ -1222,24 +1180,23 @@ static bool renderGraph(FieldLayout *layout) {
 		graphAddPoint(field, getEditableNumber(source, true));
 
 	// Set axis coordinates
-	int axisdigits = 4;
+	int axisdigits = 5;
 	int axiswidth = axisdigits
 			* (GRAPH_MAXVAL_FONT.char_width + gui.char_h_space);
 	graphX = layout->x; // upper left of graph
 	graphY = layout->y; // upper left of graph,
 	graphWidth = layout->width; // total draw area width
 	graphHeight = layout->height; // total draw area height
-	graphXmin = graphX + 1 + axiswidth; // x loc of 0,0 position
+	graphXmin = graphX + axiswidth; // x loc of 0,0 position
 	graphXmax = graphX + graphWidth - 1; // x loc of rightmost data point
 	graphYmin = graphY + graphHeight - 1; // y loc of 0,0 position (for min value)
-	graphYmax = graphY + GRAPH_LABEL_FONT.char_height + GRAPH_GRAPH_LABEL_OFFSET; // y loc of max value
+	graphYmax = graphY + GRAPH_LABEL_FONT.char_height; // y loc of max value
 	graphLabelY = graphY; // y loc of the label for field name
 
 	// limit max x based on the number of points we might have (so each point gets its own column
 	if (graphXmin + GRAPH_MAX_POINTS < graphXmax)
 		graphXmax = graphXmin + GRAPH_MAX_POINTS;
 
-	// clear only if needed
 	graphClear(field);
 
 	if(needBlink && !blinkOn)
@@ -1278,14 +1235,8 @@ static void forceScrollableRender() {
 
 // Mark a new editable as active (and that it now wants to be animated)
 static void setActiveEditable(Field *clicked) {
-  void (*onPreSetEditable)(uint32_t) = curActiveEditable->editable.number.onPreSetEditable;
-
 	if (curActiveEditable) {
 		curActiveEditable->blink = false;
-
-		// callback onPreSetEditable
-		if (onPreSetEditable)
-		  onPreSetEditable(curEditableValueConverted);
 
 		// Save any changed value
 		setEditableNumber(curActiveEditable, curEditableValueConverted, true);
@@ -1319,7 +1270,6 @@ static bool onPressEditable(buttons_events_t events) {
 	if (events & DOWN_CLICK) {
 		handled = true;
 	}
-
 // Mark that we are no longer editing - click pwr button to exit
 	if (events & SCREENCLICK_STOP_EDIT) {
 		setActiveEditable(NULL);
@@ -1466,32 +1416,20 @@ static void selectNextCustomizableField() {
 /**
  * For the currently customizing field, advance the target to the next possible choice for the sort of data to show.
  */
-static void changeCurrentCustomizableField(uint8_t ui8_direction) {
+static void changeCurrentCustomizableField() {
 	Field *s = curCustomizingField;
 	assert(s && s->variant == FieldCustomizable);
 
 	uint8_t i = *s->customizable.selector;
-	static uint8_t i_max;
 
-	static uint8_t ui8_first_time = 1;
+	Field *oldSelected = s->customizable.choices[i];
 
-	// find number of customized fields
-	if (ui8_first_time) {
-    ui8_first_time = 0;
+	// If we are leaving a graph, discard that graphs cache (so it will start fresh next time)
+	if(oldSelected->variant == FieldGraph)
+		oldSelected->graph.cache = NULL;
 
-    for (i_max = 0; s->customizable.choices[i_max] != 0; i_max++)
-      ;
-	}
-
-	if (ui8_direction) {
-    if (!s->customizable.choices[++i]) // we fell off the end, loop around
-      i = 0;
-	} else {
-	  if (i == 0)
-	    i = i_max;
-	  else
-	    i--;
-	}
+	if (!s->customizable.choices[++i]) // we fell off the end, loop around
+		i = 0;
 
 	*s->customizable.selector = i;
 }
@@ -1512,17 +1450,12 @@ static bool onPressCustomizing(buttons_events_t events) {
 
 	// Change the current customizable field to show the next possible value
 	if (events & UP_CLICK) {
-		changeCurrentCustomizableField(1);
+		changeCurrentCustomizableField();
 		return true;
 	}
 
-  if (events & DOWN_CLICK) {
-    changeCurrentCustomizableField(0);
-    return true;
-  }
-
 	// Go to next customizable field
-	if (events & ONOFF_CLICK) {
+	if (events & DOWN_CLICK) {
 		selectNextCustomizableField();
 		return true;
 	}
@@ -1587,7 +1520,7 @@ Screen* getCurrentScreen() {
 }
 
 void screenUpdate() {
-	if (!curScreen)
+	if (!curScreen )
 		return;
 
 	if (curScreen->onPreUpdate)
@@ -1645,4 +1578,3 @@ void fieldPrintf(Field *field, const char *fmt, ...) {
 
 	va_end(argp);
 }
-

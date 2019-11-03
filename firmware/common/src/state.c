@@ -525,21 +525,21 @@ void l2_calc_wh(void) {
 
 		// avoid zero divisison
 		if (l2_vars.ui32_wh_sum_counter != 0) {
-			ui32_temp = l2_vars.ui32_wh_sum_counter / 360;// Stef war 36
+			ui32_temp = l2_vars.ui32_wh_sum_counter / 36;// Stef war 36
 			ui32_temp = (ui32_temp
 					* (l2_vars.ui32_wh_sum_x5 / l2_vars.ui32_wh_sum_counter))
 					/ 500;
 		}
 
 		l2_vars.ui32_wh_x10 = l2_vars.ui32_wh_x10_offset + ui32_temp;
-//Stef
+//Stef  range calculate
 l3_vars.ui32_wh_gesamt_x10 = l3_vars.ui32_wh_gesamt_x10_offset + ui32_temp;
 
-// calculate average watt-hour consumption per distance traveled, since power on. Check to avoid zero division
+// calculate average watt-hour consumption per distance traveled. Check to avoid zero division
 
 if (l3_vars.ui32_ee_gesamt_km == 0)
 	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = 0;
-else
+else//
 	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = (l3_vars.ui32_wh_gesamt_x10 * 10 ) / l3_vars.ui32_ee_gesamt_km; // multiply numerator with 10 to retain decimal
 
 if (l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt == 0)
@@ -641,7 +641,7 @@ uint8_t first_time_management(void) {
 						* 1000)) {
 			l3_vars.ui32_wh_x10_offset = 0;
 
-			if (l3_vars.ui32_ee_gesamt_km > 500)
+			if (l3_vars.ui32_ee_gesamt_km > 500)  // Every 50 km, the range calculation is halved
 			{
 				l3_vars.ui32_ee_gesamt_km /= 2;
 				l3_vars.ui32_ee_gesamt_km_mit_motor /= 2;
@@ -664,7 +664,6 @@ uint8_t first_time_management(void) {
 
 void calc_battery_soc_watts_hour(void) {
 	uint32_t ui32_temp;
-
 	ui32_temp = l3_vars.ui32_wh_x10 * 100;
 	if (l3_vars.ui32_wh_x10_100_percent > 0) {
 		ui32_temp /= l3_vars.ui32_wh_x10_100_percent;
@@ -752,17 +751,6 @@ void copy_layer_2_layer_3_vars(void) {
 	l3_vars.ui8_braking = l2_vars.ui8_braking;
 	l3_vars.ui8_foc_angle = l2_vars.ui8_foc_angle;
 
-/*
-	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor = l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor;
-	l3_vars.ui32_wh_gesamt_x10_offset = l2_vars.ui32_wh_gesamt_x10_offset;
-	l3_vars.ui16_avg_speed_x10 = l2_vars.ui16_avg_speed_x10;
-	l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt;
-	l3_vars.ui16_erwartete_reichweite_gesamt_x10 = l2_vars.ui16_erwartete_reichweite_gesamt_x10;
-
-	l3_vars.ui32_ee_gesamt_km = l2_vars.ui32_ee_gesamt_km;
-	l3_vars.ui32_ee_gesamt_km_mit_motor = l2_vars.ui32_ee_gesamt_km_mit_motor;
-	l3_vars.ui32_wh_gesamt_x10 = l2_vars.ui32_wh_gesamt_x10;
-*/
 
 	l2_vars.ui32_wh_x10_offset = l3_vars.ui32_wh_x10_offset;
 	l2_vars.ui16_battery_pack_resistance_x1000 =
@@ -854,16 +842,6 @@ void copy_layer_2_layer_3_vars(void) {
 	l2_vars.ui8_offroad_power_limit_div25 =
 			l2_vars.ui8_offroad_power_limit_div25;
 
-		/*	l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor = l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__mit_motor;
-			l2_vars.ui32_wh_gesamt_x10_offset = l3_vars.ui32_wh_gesamt_x10_offset;
-			l2_vars.ui16_avg_speed_x10 = l3_vars.ui16_avg_speed_x10;
-			l2_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt = l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt;
-			l2_vars.ui16_erwartete_reichweite_gesamt_x10 = l3_vars.ui16_erwartete_reichweite_gesamt_x10;
-
-			l2_vars.ui32_ee_gesamt_km = l3_vars.ui32_ee_gesamt_km;
-			l2_vars.ui32_ee_gesamt_km_mit_motor = l3_vars.ui32_ee_gesamt_km_mit_motor;
-			l2_vars.ui32_wh_gesamt_x10 = l3_vars.ui32_wh_gesamt_x10;
-*/
 	// Some l3 vars are derived only from other l3 vars
 	uint32_t ui32_battery_cells_number_x10 =
 			(uint32_t) (l3_vars.ui8_battery_cells_number * 10);

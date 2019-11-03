@@ -35,7 +35,7 @@ void wheel_speed(void);
 void battery_soc(void);
 void trip_time(void);
 void wheel_speed(void);
-void showNextScreen();
+static void showNextScreen();
 static bool renderWarning(FieldLayout *layout);
 
 /// set to true if this boot was caused because we had a watchdog failure, used to show user the problem in the fault line
@@ -43,12 +43,13 @@ bool wd_failure_detected;
 
 //
 // Fields - these might be shared my multiple screens
-//
+//p
 Field socField = FIELD_DRAWTEXT();
 Field timeField = FIELD_DRAWTEXT();
 Field assistLevelField = FIELD_READONLY_UINT("assist", &l3_vars.ui8_assist_level, "");
+Field noTxTassistLevelField = FIELD_READONLY_UINT("", &l3_vars.ui8_assist_level, "p");
 #ifdef SW102
-Field wheelSpeedIntegerField = FIELD_READONLY_UINT("speed", &l3_vars.ui16_wheel_speed_x10, "kph", .div_digits = 1, .hide_fraction = true);
+Field wheelSpeedIntegerField = FIELD_READONLY_UINT("speed", &l3_vars.ui16_wheel_speed_x10, "kmh", .div_digits = 1, .hide_fraction = true);
 #else
 Field wheelSpeedIntegerField = FIELD_READONLY_UINT("speed", &l3_vars.ui16_wheel_speed_x10, "", .div_digits = 1, .hide_fraction = true);
 #endif
@@ -57,9 +58,11 @@ Field maxPowerField = FIELD_READONLY_UINT(_S("motor power", "motor pwr"), &l3_va
 Field humanPowerField = FIELD_READONLY_UINT("human power", &l3_vars.ui16_pedal_power_filtered, "W");
 Field warnField = FIELD_CUSTOM(renderWarning);
 
-Field tripTimeField = FIELD_READONLY_STRING("trip time", "unset");
+Field tripTimeField = FIELD_READONLY_STRING("trp time", "unset");
 Field tripDistanceField = FIELD_READONLY_UINT("trip distance", &l3_vars.ui32_trip_x10, "km", .div_digits = 1);
-Field odoField = FIELD_READONLY_UINT("odometer", &l3_vars.ui32_odometer_x10, "km", .div_digits = 1);
+Field tripDistanceIntegerField = FIELD_READONLY_UINT("trp distance", &l3_vars.ui32_trip_x10, "km", .div_digits = 1, .hide_fraction = true);
+Field odoField = FIELD_READONLY_UINT("odometer", &l3_vars.ui32_odometer_x10, "km", .div_digits = 1, .hide_fraction = false);
+
 Field motorTempField = FIELD_READONLY_UINT("motor temperature", &l3_vars.ui8_motor_temperature, "C");
 Field batteryVoltageField = FIELD_READONLY_UINT("battery voltage", &l3_vars.ui16_battery_voltage_filtered_x10, "", .div_digits = 1);
 
@@ -68,6 +71,13 @@ Field motorErpsField = FIELD_READONLY_UINT("motor speed", &l3_vars.ui16_motor_sp
 Field motorFOCField = FIELD_READONLY_UINT("motor foc", &l3_vars.ui8_foc_angle, "");
 Field cadenceField = FIELD_READONLY_UINT("cadence", &l3_vars.ui8_pedal_cadence, "rpm");
 
+Field AvgSpeed = FIELD_READONLY_UINT("Avg speed", &l3_vars.ui16_avg_speed_x10, "kmh/h", .div_digits = 1);
+Field RangeField = FIELD_READONLY_UINT("Reichw", &l3_vars.ui16_erwartete_reichweite_gesamt_x10, "km", .div_digits = 1, .hide_fraction = false);
+Field maxSpeedField = FIELD_READONLY_UINT("MaxSpeed", &l3_vars.ui16_max_speed_x10_kmh, "kmh", .div_digits = 1, .hide_fraction = false);
+Field UsedField = FIELD_READONLY_UINT("Used", &l3_vars.ui32_wh_x10, "whr");
+Field gesamt_kmField = FIELD_READONLY_UINT("GesKm", &l3_vars.ui32_ee_gesamt_km, "gKm");
+
+Field WhKmField = FIELD_READONLY_UINT("Wh/Km", &l3_vars.ui16_durchschn_verbrauch_Wh_x10_p_km__gesamt, "Wk", .div_digits = 1, .hide_fraction = false);
 /**
  * NOTE: The indexes into this array are stored in EEPROM, to prevent user confusion add new options only at the end.
  * If you remove old values, either warn users or bump up eeprom version to force eeprom contents to be discarded.
@@ -84,6 +94,12 @@ Field *customizables[] = {
 		&motorFOCField, // 8
 		&cadenceField, // 9
 		&tripDistanceField, // 10
+		&AvgSpeed,
+		&maxSpeedField,
+		&RangeField,
+		&UsedField,
+		&WhKmField,
+		&gesamt_kmField,
 		NULL
 };
 
@@ -108,6 +124,7 @@ static void bootScreenOnPreUpdate() {
 	uint16_t bvolt = battery_voltage_10x_get();
 
 	is_sim_motor = (bvolt < MIN_VOLTAGE_10X);
+
   if(is_sim_motor)
     fieldPrintf(&bootStatus, "SIMULATING TSDZ2!");
   else if(has_seen_motor)
@@ -172,16 +189,48 @@ bool anyscreen_onpress(buttons_events_t events) {
 
     return true;
   }
+//  return false;
 
-  return false;
+	// Stef long M after first long M to clear range Data
+	if (events & M_LONG_CLICK && l3_vars.ui32_trip_x10 == 0) {
+		l3_vars.ui32_ee_gesamt_km = 0;
+		l3_vars.ui32_ee_gesamt_km_mit_motor = 0;
+		l3_vars.ui32_wh_gesamt_x10_offset = 0;
+		return true;
+	}
+
+	// first long M to clear last trip data
+	if (events & M_LONG_CLICK) {
+		l3_vars.ui32_trip_x10 = 0;
+		l3_vars.ui32_trip_timeSec = 0;
+		l3_vars.ui16_avg_speed_x10 = 0;
+		l3_vars.ui16_max_speed_x10_kmh = 0;
+		return true;
+	}
+
+
+
+
+		if (events & ONOFF_CLICK_LONG_CLICK) {		// goto configScreen
+			 screenShow(screens[2]);
+			 return true;
+		 }
+
+		 if (events & M_CLICK_LONG_CLICK && l3_vars.ui16_wheel_speed_x10 > 300) {	// Turbo
+					l3_vars.ui8_offroad_mode = 1;
+		 		 return true;
+		 	 }
+
+
+
+	return false;
 }
 
 bool mainscreen_onpress(buttons_events_t events) {
 	if(anyscreen_onpress(events))
 	  return true;
 
-	if (events & UP_CLICK /* &&
-	 m_lcd_vars.ui8_lcd_menu_max_power == 0 */) {
+	if (events & UP_CLICK ) {
 		l3_vars.ui8_assist_level++;
 
 		if (l3_vars.ui8_assist_level > l3_vars.ui8_number_of_assist_levels) {
@@ -191,8 +240,7 @@ bool mainscreen_onpress(buttons_events_t events) {
 		return true;
 	}
 
-	if (events & DOWN_CLICK /* &&
-	 m_lcd_vars.ui8_lcd_menu_max_power == 0 */) {
+	if (events & DOWN_CLICK) {
 		if (l3_vars.ui8_assist_level > 0)
 			l3_vars.ui8_assist_level--;
 
@@ -223,8 +271,12 @@ void lcd_main_screen(void) {
 void wheel_speed(void)
 {
   // limit otherwise at startup this value goes crazy
-  if(l3_vars.ui16_wheel_speed_x10 > 999) {
+	if(l3_vars.ui16_wheel_speed_x10 > 999) {
     l3_vars.ui16_wheel_speed_x10 = 999;
+  }
+
+	if(l3_vars.ui16_wheel_speed_x10 > l3_vars.ui16_max_speed_x10_kmh) {
+    l3_vars.ui16_max_speed_x10_kmh = l3_vars.ui16_wheel_speed_x10;
   }
 
   // Note: no need to check for 'wheel speed previous' because this math is so cheap
@@ -362,15 +414,11 @@ void screen_clock(void) {
 	}
 
 	lcd_main_screen();
-
-  clock_time();
-  DisplayResetToDefaults();
-
 	screenUpdate();
 }
 
 void trip_time(void) {
-	rtc_time_t *p_time = rtc_get_time_since_startup();
+	struct_rtc_time_t *p_time = rtc_get_time_since_startup();
 	static int oldmin = -1; // used to prevent unneeded updates
 	static char timestr[8]; // 12:13
 
@@ -453,7 +501,15 @@ void warnings(void) {
 	}
 
 	setWarning(ColorNormal, "");
+	if (l3_vars.ui32_trip_timeSec == 0)
+			setWarning(ColorNormal, "CLEAR TRP");
+
+	if (l3_vars.ui32_ee_gesamt_km == 0)
+			setWarning(ColorNormal, "CLEAR RNG");
+
 }
+
+
 
 void battery_soc(void) {
 	if (l3_vars.ui8_battery_soc_enable)
@@ -466,7 +522,7 @@ void battery_soc(void) {
 
 
 void time(void) {
-	rtc_time_t *p_rtc_time = rtc_get_time();
+	struct_rtc_time_t *p_rtc_time = rtc_get_time();
 
 	// force to be [0 - 12]
 	if (l3_vars.ui8_units_type) { // FIXME, should be based on a different eeprom config value, just because someone is using mph doesn't mean they want 12 hr time
@@ -498,12 +554,13 @@ void walk_assist_state(void) {
 // Screens in a loop, shown when the user short presses the power button
 extern Screen *screens[];
 
-void showNextScreen() {
+static void showNextScreen() {
 	static int nextScreen;
 
 	Screen *next = screens[nextScreen++];
 
-	if (!next) {
+//	if (!next) {
+	if (nextScreen > 2) {	//Stef 2 bei 2 Screens 3. ist config
 		nextScreen = 0;
 		next = screens[nextScreen++];
 	}
@@ -560,12 +617,7 @@ static void handle_buttons() {
 
 /// Call every 20ms from the main thread.
 void main_idle() {
-	static uint8_t ui8_100ms_timer_counter = 0;
-	
 	handle_buttons();
 	screen_clock(); // This is _after_ handle_buttons so if a button was pressed this tick, we immediately update the GUI
-	if (++ui8_100ms_timer_counter >= 5) {
-		ui8_100ms_timer_counter = 0;
-		automatic_power_off_management(); // Note: this was moved from layer_2() because it does eeprom operations which should not be used from ISR
-	}
+	automatic_power_off_management(); // Note: this was moved from layer_2() because it does eeprom operations which should not be used from ISR
 }
